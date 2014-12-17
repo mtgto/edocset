@@ -1,0 +1,4 @@
+{application, edocset,
+	[{vsn, "1.0.0"},
+	{description, "docset extension for EDoc"}
+	]}.
