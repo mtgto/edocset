@@ -135,21 +135,19 @@ module_name(Elem) ->
 
 types(Elem) ->
     Types = xmerl_xpath:string("//html/body/h3[@class='typedecl']/a", Elem),
-    lists:usort(lists:map(fun (Anchor) ->
-        [#xmlText{value = TypeName}] = Anchor#xmlElement.content,
-        Attributes = Anchor#xmlElement.attributes,
-        AnchorName = anchor_name(Attributes),
-        {AnchorName, TypeName}
-    end, Types)).
+    collect_anchors(Types).
 
 functions(Elem) ->
     Types = xmerl_xpath:string("//html/body/h3[@class='function']/a", Elem),
+    collect_anchors(Types).
+
+collect_anchors(Anchors) ->
     lists:usort(lists:map(fun (Anchor) ->
-        [#xmlText{value = TypeName}] = Anchor#xmlElement.content,
+        [#xmlText{value = Name}] = Anchor#xmlElement.content,
         Attributes = Anchor#xmlElement.attributes,
         AnchorName = anchor_name(Attributes),
-        {AnchorName, TypeName}
-    end, Types)).
+        {AnchorName, Name}
+    end, Anchors)).
 
 anchor_name([]) -> throw(not_found);
 anchor_name([#xmlAttribute{name=name, value=Value} | _]) -> Value;
