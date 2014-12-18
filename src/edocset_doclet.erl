@@ -30,8 +30,7 @@ run(#doclet_gen{}=Cmd, Ctxt) ->
     ContentsDir = lists:flatten(io_lib:format("~s.docset/Contents", [App])),
     DocumentDir = lists:flatten(io_lib:format("~s/Resources/Documents/", [ContentsDir])),
     case filelib:ensure_dir(DocumentDir) of
-        {error, Reason} ->
-            io:format("error:~p~n", [Reason]),
+        {error, _Reason} ->
             exit(error);
         ok ->
             ok = copy_dir("doc", DocumentDir),
@@ -81,8 +80,7 @@ create_table(SQLiteFile) ->
             ok = sqlite3:create_table(db, ?TABLE_NAME, [{id, integer, [primary_key]}, {name, text}, {type, text}, {path, text}]),
             ok = sqlite3:sql_exec(db, "CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);"),
             ok;
-        {error, Error} ->
-            io:format("error ~p~n", [Error]),
+        {error, _Error} ->
             error(error)
     end.
 
@@ -90,7 +88,7 @@ create_database(Dir) ->
     Fun = fun(Path, Acc) ->
         case Acc of
             ok ->
-                try xmerl_scan:file(Path) of
+                try xmerl_scan:file(Path, [{quiet, true}]) of
                     {Xml, _} ->
                         ModuleName = module_name(Xml),
                         {rowid, _} = sqlite3:write(db, ?TABLE_NAME, [{name, ModuleName}, {type, "Module"}, {path, Path}]),
@@ -101,13 +99,11 @@ create_database(Dir) ->
                         ok
                 catch
                     exit:_Reason ->
-                        io:format("skip ~p~n", [Path]),
                         ok;
-                    Hoge:_ ->
-                        io:format("AAAAAAAAA ~p~n", [Hoge]),
+                    _:_ ->
                         error(error)
                 end;
-            Other -> io:format("BBBB~n"), Other
+            Other -> Other
         end
     end,
     ok = filelib:fold_files(Dir, "\\.html$", true, Fun, ok).
@@ -129,7 +125,6 @@ module_name(Elem) ->
     [#xmlElement{content = [Content]}] = xmerl_xpath:string("//html/body/h1", Elem),
     Text = Content#xmlText.value,
     [_, ModuleName] = string:tokens(Text, " "),
-    io:format("ModuleName = ~p~n", [ModuleName]),
     ModuleName.
 
 types(Elem) ->
