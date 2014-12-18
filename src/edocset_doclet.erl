@@ -31,7 +31,9 @@ run(#doclet_gen{}=Cmd, Ctxt) ->
         ok ->
             ok = copy_dir("doc", DocumentDir),
             InfoPlistFile = lists:flatten(io_lib:format("~s/Info.plist", [ContentsDir])),
-            create_info_plist(InfoPlistFile, App)
+            create_info_plist(InfoPlistFile, App),
+            SQLiteFile = lists:flatten(io_lib:format("~s/Resources/docSet.dsidx", [ContentsDir])),
+            ok = create_table(SQLiteFile)
     end,
     ok.
 
@@ -66,3 +68,14 @@ create_info_plist(Path, App) ->
                                 ]}]},
     Xml = xmerl:export_simple([Elem], xmerl_xml, [{prolog, Prolog}]),
     file:write_file(Path, Xml).
+
+create_table(SQLiteFile) ->
+    case sqlite3:open(db, [{file, SQLiteFile}]) of
+        {ok, _Pid} ->
+            ok = sqlite3:create_table(db, "searchIndex", [{id, integer, [primary_key]}, {name, text}, {type, text}, {path, text}]),
+            ok = sqlite3:sql_exec(db, "CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);"),
+            ok;
+        {error, Error} ->
+            io:format("error ~p~n", [Error]),
+            error(error)
+    end.
