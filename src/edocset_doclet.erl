@@ -14,13 +14,15 @@
 
 -module(edocset_doclet).
 
--export([run/2]).
+-export([run/2, create_info_plist/2]).
 
 -include_lib("edoc/include/edoc_doclet.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 run(#doclet_gen{}=Cmd, Ctxt) ->
     ok = edoc_doclet:run(Cmd, Ctxt),
-    ContentsDir = lists:flatten(io_lib:format("~s.docset/Contents", [Cmd#doclet_gen.app])),
+    App = Cmd#doclet_gen.app,
+    ContentsDir = lists:flatten(io_lib:format("~s.docset/Contents", [App])),
     DocumentDir = lists:flatten(io_lib:format("~s/Resources/Documents/", [ContentsDir])),
     case filelib:ensure_dir(DocumentDir) of
         {error, Reason} ->
@@ -28,7 +30,8 @@ run(#doclet_gen{}=Cmd, Ctxt) ->
             exit(error);
         ok ->
             ok = copy_dir("doc", DocumentDir),
-            _InfoPlistFile = lists:flatten(io_lib:format("~s/Info.plist", [ContentsDir]))
+            InfoPlistFile = lists:flatten(io_lib:format("~s/Info.plist", [ContentsDir])),
+            create_info_plist(InfoPlistFile, App)
     end,
     ok.
 
@@ -46,3 +49,20 @@ copy_dir(Src, Dst) ->
                   end
           end,
     ok = filelib:fold_files(Src, "^[^.]", true, Fun, ok).
+
+create_info_plist(Path, App) ->
+    %Decl = #xmlDecl{vsn="1.0", encoding="UTF-8"}
+    Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+"],
+    Elem = #xmlElement{name=plist,
+                      attributes=[#xmlAttribute{name=version, value="1.0"}],
+                      content=[{dict,
+                                [
+                                 {key, ["CFBundleIdentifier"]}, {string, [App]},
+                                 {key, ["CFBundleName"]}, {string, [App]},
+                                 {key, ["DocSetPlatformFamily"]}, {string, [App]},
+                                 {key, ["isDashDocset"]}, {true, []}
+                                ]}]},
+    Xml = xmerl:export_simple([Elem], xmerl_xml, [{prolog, Prolog}]),
+    file:write_file(Path, Xml).
