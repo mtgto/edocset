@@ -14,16 +14,18 @@
 
 -module(edocset_doclet).
 
--export([run/2, create_table/1, create_database/1]).
+-export([run/2]).
 
 -include_lib("edoc/include/edoc_doclet.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -define(TABLE_NAME, "searchIndex").
+-define(DOC_DIR, "doc").
 
 -export_type([assoc_list/2]).
 -type assoc_list(Key, Value) :: [{Key, Value}].
 
+%% @doc entry point of doclet. Create a docset after generated edoc.
 run(#doclet_gen{}=Cmd, Ctxt) ->
     ok = edoc_doclet:run(Cmd, Ctxt),
     App = Cmd#doclet_gen.app,
@@ -33,15 +35,16 @@ run(#doclet_gen{}=Cmd, Ctxt) ->
         {error, _Reason} ->
             exit(error);
         ok ->
-            ok = copy_dir("doc", DocumentDir),
+            ok = copy_dir(?DOC_DIR, DocumentDir),
             InfoPlistFile = lists:flatten(io_lib:format("~s/Info.plist", [ContentsDir])),
             create_info_plist(InfoPlistFile, App),
             SQLiteFile = lists:flatten(io_lib:format("~s/Resources/docSet.dsidx", [ContentsDir])),
             ok = create_table(SQLiteFile),
-            ok = create_database("doc")
+            ok = create_database(?DOC_DIR)
     end,
     ok.
 
+%% @doc copy all files with the directory.
 copy_dir(Src, Dst) ->
     Fun = fun(Path, Acc) ->
                   case Acc of
@@ -57,6 +60,7 @@ copy_dir(Src, Dst) ->
           end,
     ok = filelib:fold_files(Src, "^[^.]", true, Fun, ok).
 
+%% @doc create Info.plist for Dash.
 create_info_plist(Path, App) ->
     AppName = atom_to_list(App),
     Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -74,6 +78,7 @@ create_info_plist(Path, App) ->
     Xml = xmerl:export_simple([Elem], xmerl_xml, [{prolog, Prolog}]),
     file:write_file(Path, Xml).
 
+%% @doc create sqlite3 database and table.
 create_table(SQLiteFile) ->
     case sqlite3:open(db, [{file, SQLiteFile}]) of
         {ok, _Pid} ->
@@ -84,6 +89,7 @@ create_table(SQLiteFile) ->
             error(error)
     end.
 
+%% @doc create the database containing modules, types, functions.
 create_database(Dir) ->
     Fun = fun(Path, Acc) ->
         case Acc of
@@ -108,9 +114,11 @@ create_database(Dir) ->
     end,
     ok = filelib:fold_files(Dir, "\\.html$", true, Fun, ok).
 
+%% @doc create types database
 write_types(Types, Module, FilePath) ->
     write_types_or_functions(Types, Module, "Type", FilePath).
 
+%% @doc create functions database
 write_functions(Functions, Module, FilePath) ->
     write_types_or_functions(Functions, Module, "Function", FilePath).
 
