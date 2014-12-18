@@ -112,19 +112,18 @@ create_database(Dir) ->
     end,
     ok = filelib:fold_files(Dir, "\\.html$", true, Fun, ok).
 
-write_types([], _, _) -> ok;
-write_types([{Anchor, Type} | Rest], Module, FilePath) ->
-    Path = string:join([FilePath, "#", Anchor], ""),
-    DisplayType = string:join([Module, ":", Type], ""),
-    {rowid, _} = sqlite3:write(db, ?TABLE_NAME, [{name, DisplayType}, {type, "Type"}, {path, Path}]),
-    write_types(Rest, Module, FilePath).
+write_types(Types, Module, FilePath) ->
+    write_types_or_functions(Types, Module, "Type", FilePath).
 
-write_functions([], _, _) -> ok;
-write_functions([{Anchor, Type} | Rest], Module, FilePath) ->
+write_functions(Functions, Module, FilePath) ->
+    write_types_or_functions(Functions, Module, "Function", FilePath).
+
+write_types_or_functions([], _, _, _) -> ok;
+write_types_or_functions([{Anchor, Name} | Rest], Module, Type, FilePath) ->
     Path = string:join([FilePath, "#", Anchor], ""),
-    DisplayType = string:join([Module, ":", Type], ""),
-    {rowid, _} = sqlite3:write(db, ?TABLE_NAME, [{name, DisplayType}, {type, "Function"}, {path, Path}]),
-    write_functions(Rest, Module, FilePath).
+    DisplayName = string:join([Module, ":", Name], ""),
+    {rowid, _} = sqlite3:write(db, ?TABLE_NAME, [{name, DisplayName}, {type, Type}, {path, Path}]),
+    write_types_or_functions(Rest, Module, Type, FilePath).
 
 module_name(Elem) ->
     [#xmlElement{content = [Content]}] = xmerl_xpath:string("//html/body/h1", Elem),
@@ -138,8 +137,8 @@ types(Elem) ->
     collect_anchors(Types).
 
 functions(Elem) ->
-    Types = xmerl_xpath:string("//html/body/h3[@class='function']/a", Elem),
-    collect_anchors(Types).
+    Functions = xmerl_xpath:string("//html/body/h3[@class='function']/a", Elem),
+    collect_anchors(Functions).
 
 collect_anchors(Anchors) ->
     lists:usort(lists:map(fun (Anchor) ->
