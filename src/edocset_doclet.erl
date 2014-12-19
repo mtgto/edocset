@@ -22,9 +22,6 @@
 -define(TABLE_NAME, "searchIndex").
 -define(DOC_DIR, "doc").
 
--export_type([assoc_list/2]).
--type assoc_list(Key, Value) :: [{Key, Value}].
-
 %% @doc entry point of doclet. Create a docset after generated edoc.
 run(#doclet_gen{}=Cmd, Ctxt) ->
     ok = edoc_doclet:run(Cmd, Ctxt),
