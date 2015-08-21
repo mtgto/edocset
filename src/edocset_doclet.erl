@@ -36,8 +36,14 @@ run(#doclet_gen{}=Cmd, Ctxt) ->
             InfoPlistFile = lists:flatten(io_lib:format("~s/Info.plist", [ContentsDir])),
             create_info_plist(InfoPlistFile, App),
             SQLiteFile = lists:flatten(io_lib:format("~s/Resources/docSet.dsidx", [ContentsDir])),
-            ok = create_table(SQLiteFile),
-            ok = create_database(?DOC_DIR)
+            try
+              ok = create_table(SQLiteFile),
+              ok = create_database(?DOC_DIR)
+            catch _:Err ->
+              io:format("Failed!\n  ~p\nin\n  ~p\n", [Err, erlang:get_stacktrace()])
+            after
+              catch sqlite3:close(db)
+            end
     end,
     ok.
 
@@ -79,6 +85,7 @@ create_info_plist(Path, App) ->
 create_table(SQLiteFile) ->
     case sqlite3:open(db, [{file, SQLiteFile}]) of
         {ok, _Pid} ->
+            catch sqlite3:drop_table(db, ?TABLE_NAME),
             ok = sqlite3:create_table(db, ?TABLE_NAME, [{id, integer, [primary_key]}, {name, text}, {type, text}, {path, text}]),
             ok = sqlite3:sql_exec(db, "CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);"),
             ok;
@@ -101,10 +108,11 @@ create_database(Dir) ->
                         ok = write_functions(Functions, ModuleName, Path),
                         ok
                 catch
-                    exit:_Reason ->
-                        ok;
-                    _:_ ->
-                        error(error)
+                    _:_Reason ->
+                        NoParse = [ "index", "modules-frame", "overview-summary", "packages-frame" ],
+                        [ io:format("Warning: edocset_doclet: failed to parse ~s\n", [Path])
+                          || not lists:member(filename:basename(filename:rootname(Path)), NoParse) ],
+                        ok
                 end;
             Other -> Other
         end
