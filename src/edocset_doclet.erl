@@ -85,6 +85,7 @@ create_info_plist(Path, App) ->
 create_table(SQLiteFile) ->
     case sqlite3:open(db, [{file, SQLiteFile}]) of
         {ok, _Pid} ->
+            catch sqlite3:drop_table(db, ?TABLE_NAME),
             ok = sqlite3:create_table(db, ?TABLE_NAME, [{id, integer, [primary_key]}, {name, text}, {type, text}, {path, text}]),
             ok = sqlite3:sql_exec(db, "CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path);"),
             ok;
